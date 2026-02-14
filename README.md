@@ -1,4 +1,8 @@
 # Real-Time Security Alerting Framework (Serverless)
+![Release](https://img.shields.io/badge/release-v1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Architecture](https://img.shields.io/badge/focus-architecture%20%26%20scoring-purple)
+![Serverless](https://img.shields.io/badge/style-serverless-orange)
 
 A public, sanitized reference implementation of an event-driven security alerting pipeline:
 - Ingests security events
