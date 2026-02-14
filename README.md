@@ -13,7 +13,7 @@ A public, sanitized reference implementation of an event-driven security alertin
 
 ## Architecture
 
-![Architecture Diagram](docs/architecture/architecture.png)
+![Architecture Diagram](docs/architecture/public-architecture.png)
 
 ### Components
 - **Event Source**: security platform / firewall / edge service
