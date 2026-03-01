@@ -1,87 +1,122 @@
-# Real-Time Security Alerting Framework (Serverless)
-![Release](https://img.shields.io/badge/release-v1.0.0-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Architecture](https://img.shields.io/badge/focus-architecture%20%26%20scoring-purple)
-![Serverless](https://img.shields.io/badge/style-serverless-orange)
+# security-alerting-framework
 
-A public, sanitized reference implementation of an event-driven security alerting pipeline:
-- Ingests security events
-- Enriches indicators (IP/domain)
-- Scores risk
-- Stores short-term indicator memory
-- Posts high-signal alerts to collaboration tools (e.g., Slack)
+A sanitized, public-facing reference architecture for routing security events through a serverless edge worker, enriching suspicious indicators, and conditionally escalating alerts using Slack.
 
-> This repo is a **portfolio / reference** version. It contains **no production secrets, IDs, tokens, or internal URLs**.
+This repository contains no production secrets, URLs, or internal identifiers.
+It demonstrates architecture patterns only.
 
 ---
 
-## Architecture
+## Overview
 
-![Architecture Diagram](docs/architecture/public-architecture.png)
-
-### Components
-- **Event Source**: security platform / firewall / edge service
-- **Poller / Collector**: periodically pulls events from an API and forwards to the router
-- **Router (Decision Engine)**: applies scoring rules, rate limits/noise gates, and routes notifications
-- **Enrichment Service**: looks up IP/domain context (geo, ASN/org, privacy flags) via a provider
-- **KV Memory**: short-term state (e.g., first/last seen, counts)
-- **Notification Sink**: Slack (threads), email, webhooks, etc.
-
----
-
-## What’s Included
-- ✅ Clean, documented architecture
-- ✅ Risk scoring model (threshold-based)
-- ✅ Short-term indicator memory design
-- ✅ Digest + heartbeat patterns (low noise)
-- ✅ Secure internal service-to-service auth pattern (shared secret)
-
-## What’s Intentionally Excluded
-- ❌ Any real tokens, secrets, channel IDs, account IDs, or URLs
-- ❌ Production worker code tied to a real environment
-- ❌ Customer / org identifiers
+Event Source (Firewall / Edge / API)
+        ↓
+Serverless Router (Edge Worker Pattern)
+        ↓
+Primary Alert Channel (Slack)
+        ↓
+Conditional Threat Intelligence Enrichment (Threaded Reply)
+        ↓
+Escalation Channel (if risk threshold exceeded)
 
 ---
 
-## Scoring (Example)
+## Design Goals
 
-A simple thresholding approach:
-- **< 40**: silent
-- **40–69**: thread reply (adds context)
-- **≥ 70**: escalation (high priority)
-
-Example signals:
-- Provider base reputation score
-- Geo allowlist violations (policy-driven)
-- Repeat activity within a rolling window
-- High-signal event types (e.g., malware/intrusion)
-
-See: `docs/scoring-model.md`
+- Low-noise alerting
+- Threshold-based enrichment
+- Threaded contextual intelligence
+- Minimal state using KV-style memory
+- Separation between routing and enrichment layers
 
 ---
 
-## Storage (Indicator Memory)
+## Core Components
 
-Use a KV store to track indicators for a rolling window (e.g., 7 days):
-- `first_seen`
-- `last_seen`
-- `count_window`
-- `last_score`
+### Event Router
+- Accept authenticated POST events
+- Normalize payload structure
+- Extract indicators (IP or domain)
+- Post base alert to Slack
+- Invoke enrichment service
 
-This enables “first seen” and “repeat offender” behavior without duplicating vendor reporting.
+### Threat Intel Service Pattern
+- Accept indicator via POST `/enrich`
+- Return structured risk data:
+  - score
+  - country
+  - ASN / org
+  - privacy flags
+
+### Conditional Escalation
+- Thread enrichment when score >= 40
+- Escalate when score >= 70
+
+### 7-Day Indicator Memory
+Tracks:
+- first_seen_ms
+- last_seen_ms
+- count_7d
+- last_score
+- last_country
 
 ---
 
-## Setup (High Level)
+## Example Event
 
-This repo is a reference design. To implement in your environment:
-1. Deploy router and enrichment services (serverless)
-2. Add KV binding for indicator memory
-3. Configure webhook/ingest auth between services
-4. Configure notification sink (Slack bot token, channel mapping)
-5. Tune scoring thresholds for your noise tolerance
+{
+  "type": "abnormal_upload",
+  "device": "Endpoint-01",
+  "message": "Outbound data to 8.8.8.8",
+  "timestamp": "2026-03-01T14:00:00Z"
+}
 
 ---
 
-## License
-MIT
+## Example Enrichment Response
+
+{
+  "ok": true,
+  "score": 55,
+  "country": "NL",
+  "org": "Example Hosting Provider",
+  "privacy": {
+    "hosting": true,
+    "vpn": false,
+    "tor": false
+  }
+}
+
+---
+
+## Scoring Reference
+
+Allowlist example: US, CA, GB, AU, NZ
+
+Modifiers (illustrative):
++30 Geo outside allowlist
++15 High-risk alarm type
++15 Repeat indicator (>=3 in 7 days)
++10 First time seen
+
+Thread threshold: 40
+Critical threshold: 70
+
+---
+
+## Technology Pattern
+
+- Edge compute (Workers model)
+- Slack Web API
+- KV-style memory
+- JSON service authentication
+
+---
+
+## Production Hardening (Not Included Here)
+
+- Secret bindings for tokens
+- Strict header validation
+- Rate limiting
+- Structured logging
+- Environment separation
