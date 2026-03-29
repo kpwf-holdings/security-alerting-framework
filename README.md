@@ -1,122 +1,69 @@
-# security-alerting-framework
+# Security Alerting Framework
 
-A sanitized, public-facing reference architecture for routing security events through a serverless edge worker, enriching suspicious indicators, and conditionally escalating alerts using Slack.
+Version: v1.0.0
 
-This repository contains no production secrets, URLs, or internal identifiers.
-It demonstrates architecture patterns only.
+A unified security alerting pipeline built on Cloudflare Workers. It ingests alerts, enriches them, deduplicates them, routes them into Kanboard and GitHub, and sends critical notifications to Discord.
 
----
+## Current Workflow
 
-## Overview
+Alert Source → Cloudflare Worker → Kanboard → GitHub → Worker → Kanboard (Resolved)
 
-Event Source (Firewall / Edge / API)
-        ↓
-Serverless Router (Edge Worker Pattern)
-        ↓
-Primary Alert Channel (Slack)
-        ↓
-Conditional Threat Intelligence Enrichment (Threaded Reply)
-        ↓
-Escalation Channel (if risk threshold exceeded)
+Critical Kanboard task movement also triggers Discord alerts.
 
----
+## Supported Inputs
 
-## Design Goals
+- Cloudflare alerts
+- Firewalla alerts
+- VirusTotal alerts
+- Manual test payloads
 
-- Low-noise alerting
-- Threshold-based enrichment
-- Threaded contextual intelligence
-- Minimal state using KV-style memory
-- Separation between routing and enrichment layers
+## Core Capabilities
 
----
+- Unified alert intake
+- KV-based deduplication
+- IP intelligence enrichment with IPinfo
+- VirusTotal bypass for non-IP based malware events
+- Kanboard task lifecycle tracking
+- GitHub issue creation with embedded Kanboard Task ID
+- GitHub issue close → Kanboard resolve + close
+- Discord alerting for critical incidents
 
-## Core Components
+## Security Model
 
-### Event Router
-- Accept authenticated POST events
-- Normalize payload structure
-- Extract indicators (IP or domain)
-- Post base alert to Slack
-- Invoke enrichment service
+- GitHub resolution uses embedded Kanboard Task ID instead of KV lookup
+- Discord webhook is protected behind Kanboard webhook secret validation
+- Non-suspicious non-VT alerts can be filtered before task creation
+- KV is used for deduplication only
 
-### Threat Intel Service Pattern
-- Accept indicator via POST `/enrich`
-- Return structured risk data:
-  - score
-  - country
-  - ASN / org
-  - privacy flags
+## Required Configuration
 
-### Conditional Escalation
-- Thread enrichment when score >= 40
-- Escalate when score >= 70
+See:
+- `setup.md`
+- `env.md`
+- `testing.md`
 
-### 7-Day Indicator Memory
-Tracks:
-- first_seen_ms
-- last_seen_ms
-- count_7d
-- last_score
-- last_country
+## Repository Structure
 
----
+- `worker.js` — unified production worker
+- `README.md` — high-level project overview
+- `architecture.md` — architecture details
+- `DIAGRAM.md` — diagram source
+- `setup.md` — deployment and configuration
+- `env.md` — environment variable reference
+- `testing.md` — validation steps
+- `usage.md` — operating guide
 
-## Example Event
+## Known Operational Notes
 
-{
-  "type": "abnormal_upload",
-  "device": "Endpoint-01",
-  "message": "Outbound data to 8.8.8.8",
-  "timestamp": "2026-03-01T14:00:00Z"
-}
+- `GITHUB_REPO` must point to `kpwf-holdings/security-alerting-framework`
+- Kanboard swimlane is currently assumed to be `29`
+- Discord fires only when a task enters the Kanboard Critical column
+- VT alerts bypass IP-based suspiciousness filtering
 
----
+## Future Enhancements
 
-## Example Enrichment Response
-
-{
-  "ok": true,
-  "score": 55,
-  "country": "NL",
-  "org": "Example Hosting Provider",
-  "privacy": {
-    "hosting": true,
-    "vpn": false,
-    "tor": false
-  }
-}
-
----
-
-## Scoring Reference
-
-Allowlist example: US, CA, GB, AU, NZ
-
-Modifiers (illustrative):
-+30 Geo outside allowlist
-+15 High-risk alarm type
-+15 Repeat indicator (>=3 in 7 days)
-+10 First time seen
-
-Thread threshold: 40
-Critical threshold: 70
-
----
-
-## Technology Pattern
-
-- Edge compute (Workers model)
-- Slack Web API
-- KV-style memory
-- JSON service authentication
-
----
-
-## Production Hardening (Not Included Here)
-
-- Secret bindings for tokens
-- Strict header validation
-- Rate limiting
-- Structured logging
-- Environment separation
+- Smarter alert scoring and confidence thresholds
+- Slack + Discord multi-channel output
+- IP reputation-based escalation policy
+- Alert grouping / threading
+- Reporting dashboards
